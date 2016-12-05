@@ -1,4 +1,4 @@
-//
+//!
 //  NSMutableArray+BlocksKit.m
 //  BlocksKit
 //
@@ -6,6 +6,8 @@
 #import "NSMutableArray+BlocksKit.h"
 
 @implementation NSMutableArray (BlocksKit)
+
+/// 三个方法都会改变自身
 
 - (void)bk_performSelect:(BOOL (^)(id obj))block {
 	NSParameterAssert(block != nil);

@@ -32,12 +32,14 @@ typedef struct _BKBlock {
 	// imported variables
 } *BKBlockRef;
 
+// 写错了吧。。
 NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
     if (a[0] == b[0]) { return YES; }
     NSUInteger aSize, aAlign, bSize, bAlign;
     NSGetSizeAndAlignment(a, &aSize, &aAlign);
     NSGetSizeAndAlignment(a, &bSize, &bAlign);
     if (aSize == bSize && aAlign == bAlign) { return YES; }
+    // strcmp 一样则返回0 a>b 返回正数 a<b 返回负数 第一个!将其转为
     return !!strcmp(a, b);
 }
 
@@ -58,6 +60,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
  @param signatureA Any signature object reflecting a block or method signature
  @param signatureB Any signature object reflecting a block or method signature
  @return YES if the given signatures may be used to dispatch for one another
+ 两个方法签名 一个是method 一个是block的
  */
 + (BOOL)isSignature:(NSMethodSignature *)signatureA compatibleWithSignature:(NSMethodSignature *)signatureB __attribute__((pure))
 {
@@ -77,6 +80,8 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 	}
 
 	NSUInteger numberOfArguments = methodSignature.numberOfArguments;
+    //0id 1sel 2
+    //0block 1id 2sel
 	for (NSUInteger i = 2; i < numberOfArguments; i++) {
         if (!typesCompatible([methodSignature getArgumentTypeAtIndex:i], [blockSignature getArgumentTypeAtIndex:i - 1])) {
 			return NO;
@@ -117,10 +122,12 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 }
 
 /// Creates a method signature compatible with a given block signature.
+/// id sel ....
 + (NSMethodSignature *)methodSignatureForBlockSignature:(NSMethodSignature *)original
 {
 	if (!original) return nil;
 
+    /// 至少一个 第一个为BKBlockRef
 	if (original.numberOfArguments < 1) {
 		return nil;
 	}
@@ -145,6 +152,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 	return [NSMethodSignature signatureWithObjCTypes:signature.UTF8String];
 }
 
+/// id sel ...
 + (NSMethodSignature *)methodSignatureForBlock:(id)block
 {
 	NSMethodSignature *original = [self typeSignatureForBlock:block];
@@ -182,6 +190,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 	return (self = [self initWithBlock:block methodSignature:methodSignature blockSignature:blockSignature]);
 }
 
+///
 - (BOOL)invokeWithInvocation:(NSInvocation *)outerInv returnValue:(out NSValue **)outReturnValue setOnInvocation:(BOOL)setOnInvocation
 {
 	NSParameterAssert(outerInv);
@@ -197,6 +206,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 
 	void *argBuf = NULL;
 
+    // 设置参数并调用block
 	for (NSUInteger i = 2; i < sig.numberOfArguments; i++) {
 		const char *type = [sig getArgumentTypeAtIndex:i];
 		NSUInteger argSize;

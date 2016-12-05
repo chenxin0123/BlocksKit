@@ -1,4 +1,4 @@
-//
+//!
 //  NSObject+BKBlockExecution.m
 //  BlocksKit
 //
@@ -15,6 +15,7 @@ NS_INLINE dispatch_time_t BKTimeDelay(NSTimeInterval t) {
     return dispatch_time(DISPATCH_TIME_NOW, (uint64_t)(NSEC_PER_SEC * t));
 }
 
+/// 是否支持取消dispatch的任务
 NS_INLINE BOOL BKSupportsDispatchCancellation(void) {
 #if DISPATCH_CANCELLATION_SUPPORTED
     return (&dispatch_block_cancel != NULL);
@@ -27,6 +28,7 @@ NS_INLINE dispatch_queue_t BKGetBackgroundQueue(void) {
     return dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 }
 
+/// 可取消的dispatch
 static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queue, NSTimeInterval delay, void(^block)(void)) {
     dispatch_time_t time = BKTimeDelay(delay);
     
@@ -38,6 +40,7 @@ static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queu
     }
 #endif
     
+    /// 返回wrapper 调用wrapper(YES)来取消dispatch
     __block BOOL cancelled = NO;
     void (^wrapper)(BOOL) = ^(BOOL cancel) {
         if (cancel) {
@@ -56,6 +59,7 @@ static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queu
 
 @implementation NSObject (BlocksKit)
 
+/// 在主线程执行block
 - (id <NSObject, NSCopying>)bk_performAfterDelay:(NSTimeInterval)delay usingBlock:(void (^)(id obj))block
 {
     return [self bk_performOnQueue:dispatch_get_main_queue() afterDelay:delay usingBlock:block];
@@ -76,6 +80,7 @@ static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queu
     return [NSObject bk_performOnQueue:BKGetBackgroundQueue() afterDelay:delay usingBlock:block];
 }
 
+/// 在队列中执行block(self)
 - (id <NSObject, NSCopying>)bk_performOnQueue:(dispatch_queue_t)queue afterDelay:(NSTimeInterval)delay usingBlock:(void (^)(id obj))block
 {
     NSParameterAssert(block != nil);
@@ -85,6 +90,7 @@ static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queu
     });
 }
 
+/// 在队列中执行block()
 + (id <NSObject, NSCopying>)bk_performOnQueue:(dispatch_queue_t)queue afterDelay:(NSTimeInterval)delay usingBlock:(void (^)(void))block
 {
     NSParameterAssert(block != nil);
@@ -92,6 +98,7 @@ static id <NSObject, NSCopying> BKDispatchCancellableBlock(dispatch_queue_t queu
     return BKDispatchCancellableBlock(queue, delay, block);
 }
 
+/// 取消dispatch
 + (void)bk_cancelBlock:(id <NSObject, NSCopying>)block
 {
     NSParameterAssert(block != nil);

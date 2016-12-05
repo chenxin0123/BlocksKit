@@ -1,4 +1,4 @@
-//
+//!
 //  NSMapTable+BlocksKit.h
 //  BlocksKit
 //
@@ -106,6 +106,7 @@
     return result;
 }
 
+/// filter 移除pass test的值 会改变自己
 - (void)bk_performSelect:(BOOL (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);

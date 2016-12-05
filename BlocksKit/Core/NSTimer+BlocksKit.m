@@ -1,4 +1,4 @@
-//
+//!
 //  NSTimer+BlocksKit.m
 //  BlocksKit
 //
@@ -10,6 +10,7 @@
 
 @implementation NSTimer (BlocksKit)
 
+/// NSDefaultRunLoopMode
 + (instancetype)bk_scheduleTimerWithTimeInterval:(NSTimeInterval)seconds repeats:(BOOL)repeats usingBlock:(void (^)(NSTimer *timer))block
 {
     NSTimer *timer = [self bk_timerWithTimeInterval:seconds repeats:repeats usingBlock:block];
@@ -23,6 +24,7 @@
     CFAbsoluteTime seconds = fmax(inSeconds, 0.0001);
     CFAbsoluteTime interval = repeats ? seconds : 0;
     CFAbsoluteTime fireDate = CFAbsoluteTimeGetCurrent() + seconds;
+    // interval:If 0 or negative, the timer fires once and then is automatically invalidated
     return (__bridge_transfer NSTimer *)CFRunLoopTimerCreateWithHandler(NULL, fireDate, interval, 0, 0, (void(^)(CFRunLoopTimerRef))block);
 }
 

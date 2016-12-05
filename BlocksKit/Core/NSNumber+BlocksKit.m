@@ -1,4 +1,4 @@
-//
+//!
 //  NSNumber+BlocksKit.m
 //  BlocksKit
 //
@@ -7,6 +7,7 @@
 
 @implementation NSNumber (BlocksKit)
 
+/// 执行N此block N是self的值
 - (void)bk_times:(void (^)())block
 {
   NSParameterAssert(block != nil);

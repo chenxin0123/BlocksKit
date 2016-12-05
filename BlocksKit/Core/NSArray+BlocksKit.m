@@ -1,4 +1,4 @@
-//
+//!
 //  NSArray+BlocksKit.m
 //  BlocksKit
 //
@@ -7,6 +7,7 @@
 
 @implementation NSArray (BlocksKit)
 
+/// 同步
 - (void)bk_each:(void (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -16,6 +17,7 @@
 	}];
 }
 
+/// 异步
 - (void)bk_apply:(void (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -25,6 +27,7 @@
 	}];
 }
 
+/// 返回第一个pass test的值
 - (id)bk_match:(BOOL (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -39,6 +42,7 @@
 	return self[index];
 }
 
+/// 返回所有pass test的值
 - (NSArray *)bk_select:(BOOL (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -47,6 +51,7 @@
 	}]];
 }
 
+/// bk_select相反 过滤掉所有pass test的值
 - (NSArray *)bk_reject:(BOOL (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -55,6 +60,8 @@
 	}];
 }
 
+
+/// map nil->NSNull
 - (NSArray *)bk_map:(id (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -69,6 +76,7 @@
 	return result;
 }
 
+/// map nil丢弃
 - (NSArray *)bk_compact:(id (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -135,6 +143,7 @@
 	return [self bk_match:block] == nil;
 }
 
+/// all pass test
 - (BOOL)bk_all:(BOOL (^)(id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -151,6 +160,8 @@
 	return result;
 }
 
+/// 对比两个数组 block返回各项对比结果
+/// obj1 from self obj2 from list
 - (BOOL)bk_corresponds:(NSArray *)list withBlock:(BOOL (^)(id obj1, id obj2))block
 {
 	NSParameterAssert(block != nil);

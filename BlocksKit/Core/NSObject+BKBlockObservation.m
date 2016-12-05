@@ -1,4 +1,4 @@
-//
+//!
 //  NSObject+BKBlockObservation.m
 //  BlocksKit
 //
@@ -47,6 +47,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 	return self;
 }
 
+/// 根据self.context类型 调用task
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
 {
 	if (context != BKBlockObservationContext) return;
@@ -77,6 +78,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 	}
 }
 
+/// 监听所有的keypath
 - (void)startObservingWithOptions:(NSKeyValueObservingOptions)options
 {
 	@synchronized(self) {
@@ -90,6 +92,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 	}
 }
 
+/// 移除监听
 - (void)stopObservingKeyPath:(NSString *)keyPath
 {
 	NSParameterAssert(keyPath);
@@ -104,6 +107,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 		[self.keyPaths removeObject: keyPath];
 		keyPath = [keyPath copy];
 
+        // keyPaths数量为0时释放无用的属性
 		if (!self.keyPaths.count) {
 			_task = nil;
 			_observee = nil;
@@ -114,6 +118,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 	}
 }
 
+/// 在@synchronized内调用
 - (void)_stopObservingLocked
 {
 	if (!_isObserving) return;
@@ -131,6 +136,7 @@ static void *BKBlockObservationContext = &BKBlockObservationContext;
 	}];
 }
 
+/// 取消所有keypath的KVO
 - (void)stopObserving
 {
 	if (_observee == nil) return;
@@ -153,6 +159,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 
 @implementation NSObject (BlockObservation)
 
+/// 监听单个keyPath task(target)
 - (NSString *)bk_addObserverForKeyPath:(NSString *)keyPath task:(void (^)(id target))task
 {
 	NSString *token = [[NSProcessInfo processInfo] globallyUniqueString];
@@ -160,6 +167,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	return token;
 }
 
+/// task(target,keypath)
 - (NSString *)bk_addObserverForKeyPaths:(NSArray *)keyPaths task:(void (^)(id obj, NSString *keyPath))task
 {
 	NSString *token = [[NSProcessInfo processInfo] globallyUniqueString];
@@ -167,6 +175,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	return token;
 }
 
+/// 单个keypath task(target,change)
 - (NSString *)bk_addObserverForKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options task:(void (^)(id obj, NSDictionary *change))task
 {
 	NSString *token = [[NSProcessInfo processInfo] globallyUniqueString];
@@ -197,6 +206,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	[self bk_addObserverForKeyPaths:keyPaths identifier:identifier options:options context:context task:task];
 }
 
+/// 根据token将observer从bk_observerBlocks中移除
 - (void)bk_removeObserverForKeyPath:(NSString *)keyPath identifier:(NSString *)token
 {
 	NSParameterAssert(keyPath.length);
@@ -238,6 +248,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	if (dict.count == 0) [self bk_setObserverBlocks:nil];
 }
 
+/// 移除所有监听
 - (void)bk_removeAllBlockObservers
 {
 	NSDictionary *dict;
@@ -254,6 +265,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 
 #pragma mark - "Private"s
 
+/// 所有swizzledClass
 + (NSMutableSet *)bk_observedClassesHash
 {
 	static dispatch_once_t onceToken;
@@ -265,6 +277,9 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	return swizzledClasses;
 }
 
+/// 添加KVO
+/// keyPaths要监听的数组
+/// identifier可以用来取消本次监听
 - (void)bk_addObserverForKeyPaths:(NSArray *)keyPaths identifier:(NSString *)identifier options:(NSKeyValueObservingOptions)options context:(BKObserverContext)context task:(id)task
 {
 	NSParameterAssert(keyPaths.count);
@@ -276,6 +291,8 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
     @synchronized (classes) {
         NSString *className = NSStringFromClass(classToSwizzle);
         if (![classes containsObject:className]) {
+            
+            // hook dealloc 释放之前移除监听
             SEL deallocSelector = sel_registerName("dealloc");
             
 			__block void (*originalDealloc)(__unsafe_unretained id, SEL) = NULL;
@@ -283,7 +300,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 			id newDealloc = ^(__unsafe_unretained id objSelf) {
                 [objSelf bk_removeAllBlockObservers];
                 
-                if (originalDealloc == NULL) {
+                if (originalDealloc == NULL) {// 调用父类实现
                     struct objc_super superInfo = {
                         .receiver = objSelf,
                         .super_class = class_getSuperclass(classToSwizzle)
@@ -291,13 +308,14 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
                     
                     void (*msgSend)(struct objc_super *, SEL) = (__typeof__(msgSend))objc_msgSendSuper;
                     msgSend(&superInfo, deallocSelector);
-                } else {
+                } else {// 调用原来实现
                     originalDealloc(objSelf, deallocSelector);
                 }
             };
             
             IMP newDeallocIMP = imp_implementationWithBlock(newDealloc);
             
+            // 将dealloc实现设为newDeallocIMP originalDealloc指针指向原有实现 没有原实现originalDealloc指针为NULL
             if (!class_addMethod(classToSwizzle, deallocSelector, newDeallocIMP, "v@:")) {
                 // The class already contains a method implementation.
                 Method deallocMethod = class_getInstanceMethod(classToSwizzle, deallocSelector);
@@ -314,7 +332,9 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
         }
     }
 
+    // 添加监听者
 	NSMutableDictionary *dict;
+    // 真正的监听者_BKObserver
 	_BKObserver *observer = [[_BKObserver alloc] initWithObservee:self keyPaths:keyPaths context:context task:task];
 	[observer startObservingWithOptions:options];
 
@@ -335,6 +355,7 @@ static const NSUInteger BKKeyValueObservingOptionWantsChangeDictionary = 0x1000;
 	[self bk_associateValue:dict withKey:BKObserverBlocksKey];
 }
 
+/// 一个字典保存了identifier:_BKObserver
 - (NSMutableDictionary *)bk_observerBlocks
 {
 	return [self bk_associatedValueForKey:BKObserverBlocksKey];

@@ -1,4 +1,4 @@
-//
+//!
 //  NSIndexSet+BlocksKit.m
 //  BlocksKit
 //

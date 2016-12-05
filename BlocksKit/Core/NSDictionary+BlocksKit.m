@@ -1,4 +1,4 @@
-//
+//!
 //  NSDictionary+BlocksKit.m
 //  BlocksKit
 //
@@ -7,6 +7,7 @@
 
 @implementation NSDictionary (BlocksKit)
 
+/// 同步
 - (void)bk_each:(void (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -16,6 +17,7 @@
 	}];
 }
 
+/// 异步
 - (void)bk_apply:(void (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -25,6 +27,7 @@
 	}];
 }
 
+/// 第一个pass test
 - (id)bk_match:(BOOL (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -39,6 +42,7 @@
 	}] anyObject]];
 }
 
+/// 所有 pass test
 - (NSDictionary *)bk_select:(BOOL (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);
@@ -59,6 +63,7 @@
 	}];
 }
 
+/// key没变 value做map
 - (NSDictionary *)bk_map:(id (^)(id key, id obj))block
 {
 	NSParameterAssert(block != nil);

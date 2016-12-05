@@ -1,4 +1,4 @@
-//
+//!
 //  NSObject+BKAssociatedObjects.m
 //  BlocksKit
 //
@@ -22,26 +22,31 @@
 
 #pragma mark - Instance Methods
 
+/// setter OBJC_ASSOCIATION_RETAIN_NONATOMIC
 - (void)bk_associateValue:(id)value withKey:(const void *)key
 {
 	objc_setAssociatedObject(self, key, value, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+/// setter OBJC_ASSOCIATION_RETAIN
 - (void)bk_atomicallyAssociateValue:(id)value withKey:(const void *)key
 {
 	objc_setAssociatedObject(self, key, value, OBJC_ASSOCIATION_RETAIN);
 }
 
+/// setter OBJC_ASSOCIATION_COPY_NONATOMIC
 - (void)bk_associateCopyOfValue:(id)value withKey:(const void *)key
 {
 	objc_setAssociatedObject(self, key, value, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
+/// setter OBJC_ASSOCIATION_COPY
 - (void)bk_atomicallyAssociateCopyOfValue:(id)value withKey:(const void *)key
 {
 	objc_setAssociatedObject(self, key, value, OBJC_ASSOCIATION_COPY);
 }
 
+/// setter weak 通过_BKWeakAssociatedObject实例来实现weak
 - (void)bk_weaklyAssociateValue:(__autoreleasing id)value withKey:(const void *)key
 {
 	_BKWeakAssociatedObject *assoc = objc_getAssociatedObject(self, key);
@@ -52,6 +57,7 @@
 	assoc.value = value;
 }
 
+/// getter
 - (id)bk_associatedValueForKey:(const void *)key
 {
 	id value = objc_getAssociatedObject(self, key);
