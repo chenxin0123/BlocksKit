@@ -15,6 +15,7 @@ extern Protocol *a2_delegateProtocol(Class cls);
 
 #pragma mark - Functions
 
+/// 没必要重写吧。。。
 static BOOL bk_object_isKindOfClass(id obj, Class testClass)
 {
 	BOOL isKindOfClass = NO;
@@ -50,7 +51,13 @@ static inline BOOL isValidIMP(IMP impl) {
     return YES;
 }
 
+/// 给cls添加实现
+/// 如果已有oldSel的实现 返回NO
+/// 如果父类有oldSel实现
+/// 1.如果aggressive 添加newSel指向父类实现
+/// 2.否则oldSel指向父类实现 newSel指向newIMP
 static BOOL addMethodWithIMP(Class cls, SEL oldSel, SEL newSel, IMP newIMP, const char *types, BOOL aggressive) {
+    // 如果已有oldSel的实现
 	if (!class_addMethod(cls, oldSel, newIMP, types)) {
 		return NO;
 	}
@@ -58,6 +65,7 @@ static BOOL addMethodWithIMP(Class cls, SEL oldSel, SEL newSel, IMP newIMP, cons
 	// We just ended up implementing a method that doesn't exist
 	// (-[NSURLConnection setDelegate:]) or overrode a superclass
 	// version (-[UIImagePickerController setDelegate:]).
+    // 查找父类oldSel实现
 	IMP parentIMP = NULL;
 	Class superclass = class_getSuperclass(cls);
 	while (superclass && !isValidIMP(parentIMP)) {
@@ -97,6 +105,7 @@ static BOOL swizzleWithIMP(Class cls, SEL oldSel, SEL newSel, IMP newIMP, const 
 	return ret;
 }
 
+/// @selector(prefix_Key_suffix)
 static SEL selectorWithPattern(const char *prefix, const char *key, const char *suffix) {
 	size_t prefixLength = prefix ? strlen(prefix) : 0;
 	size_t suffixLength = suffix ? strlen(suffix) : 0;
@@ -118,6 +127,8 @@ static SEL selectorWithPattern(const char *prefix, const char *key, const char *
 	return sel_registerName(selector);
 }
 
+/// 返回属性对应的getter SEL
+/// 有自定义的Getter则返回 无则返回属性名
 static SEL getterForProperty(objc_property_t property, const char *name)
 {
 	if (property) {
@@ -133,6 +144,7 @@ static SEL getterForProperty(objc_property_t property, const char *name)
 	return sel_registerName(propertyName);
 }
 
+/// setter SEL
 static SEL setterForProperty(objc_property_t property, const char *name)
 {
 	if (property) {
@@ -148,6 +160,7 @@ static SEL setterForProperty(objc_property_t property, const char *name)
 	return selectorWithPattern("set", propertyName, ":");
 }
 
+/// a2_original
 static inline SEL prefixedSelector(SEL original) {
 	return selectorWithPattern("a2_", sel_getName(original), NULL);
 }
@@ -170,20 +183,27 @@ static NSString *A2BlockDelegateInfoDescribe(const void *__unused item) {
 	return [NSString stringWithFormat:@"(setter: %s, getter: %s)", sel_getName(info->setter), sel_getName(info->getter)];
 }
 
+/// 设置A2DynamicUIActionSheetDelegate实例为自己的代理并返回
+/// 例：protocol为UIActionSheetDelegate时返回A2DynamicUIActionSheetDelegate实例
 static inline A2DynamicDelegate *getDynamicDelegate(NSObject *delegatingObject, Protocol *protocol, const A2BlockDelegateInfo *info, BOOL ensuring) {
+    
 	A2DynamicDelegate *dynamicDelegate = [delegatingObject bk_dynamicDelegateForProtocol:a2_protocolForDelegatingObject(delegatingObject, protocol)];
 
 	if (!info || !info->setter || !info->getter) {
 		return dynamicDelegate;
 	}
 
+    // !info->setter如果成立 上面就先返回了
 	if (!info->a2_setter && !info->setter) { return dynamicDelegate; }
 
+    // 获取代理
 	id (*getterDispatch)(id, SEL) = (id (*)(id, SEL)) objc_msgSend;
 	id originalDelegate = getterDispatch(delegatingObject, info->getter);
 
+    // 如果已经是dynamicDelegate 返回
 	if (bk_object_isKindOfClass(originalDelegate, A2DynamicDelegate.class)) { return dynamicDelegate; }
 
+    // 否则设置代理
 	void (*setterDispatch)(id, SEL, id) = (void (*)(id, SEL, id)) objc_msgSend;
 	setterDispatch(delegatingObject, info->a2_setter ?: info->setter, dynamicDelegate);
 
@@ -204,11 +224,15 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 
 #pragma mark Helpers
 
+/// 返回一个NSMapTable 值类型是A2BlockDelegateInfo key是protocol
+/// createIfNeeded 没有的话是否创建
+/// 类持有一个NSMapTable来存放协议与对应的A2BlockDelegateInfo 比如UIActionSheet 存放协议A2DynamicUIActionSheetDelegate对应信息
 + (NSMapTable *)bk_delegateInfoByProtocol:(BOOL)createIfNeeded
 {
 	NSMapTable *delegateInfo = objc_getAssociatedObject(self, _cmd);
 	if (delegateInfo || !createIfNeeded) { return delegateInfo; }
 
+    // NSPointerFunctionsMallocMemory对key进行拷贝
 	NSPointerFunctions *protocols = [NSPointerFunctions pointerFunctionsWithOptions:NSPointerFunctionsOpaqueMemory|NSPointerFunctionsObjectPointerPersonality];
 	NSPointerFunctions *infoStruct = [NSPointerFunctions pointerFunctionsWithOptions:NSPointerFunctionsMallocMemory|NSPointerFunctionsStructPersonality|NSPointerFunctionsCopyIn];
 	infoStruct.sizeFunction = A2BlockDelegateInfoSize;
@@ -220,6 +244,7 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 	return delegateInfo;
 }
 
+/// 往上遍历父类查找 只查找不创建
 + (const A2BlockDelegateInfo *)bk_delegateInfoForProtocol:(Protocol *)protocol
 {
 	A2BlockDelegateInfo *infoAsPtr = NULL;
@@ -245,6 +270,10 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 	[self bk_linkProtocol:a2_delegateProtocol(self) methods:dictionary];
 }
 
+/// dictionary存放propertyName:selectorName
+/// protocol用来查找对应的A2BlockDelegateInfo
+/// 通过A2BlockDelegateInfo找到A2DynamicDelegate
+/// A2DynamicDelegate中有对应setter getter的实现
 + (void)bk_linkProtocol:(Protocol *)protocol methods:(NSDictionary *)dictionary
 {
 	[dictionary enumerateKeysAndObjectsUsingBlock:^(NSString *propertyName, NSString *selectorName, BOOL *stop) {
@@ -308,12 +337,18 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 	[self bk_registerDynamicDelegateNamed:delegateName forProtocol:a2_delegateProtocol(self)];
 }
 
+/// 就是将协议对应的A2BlockDelegateInfo储存起来
+/// 以UIActionSheet为例
+/// delegateName: @"delegate"
+/// protocol: UIActionSheetDelegate
 + (void)bk_registerDynamicDelegateNamed:(NSString *)delegateName forProtocol:(Protocol *)protocol
 {
 	NSMapTable *propertyMap = [self bk_delegateInfoByProtocol:YES];
 	A2BlockDelegateInfo *infoAsPtr = (__bridge void *)[propertyMap objectForKey:protocol];
+    // 已储存就返回
 	if (infoAsPtr != NULL) { return; }
 
+    // 未储存的话 创建A2BlockDelegateInfo并储存
 	const char *name = delegateName.UTF8String;
 	objc_property_t property = class_getProperty(self, name);
 	SEL setter = setterForProperty(property, name);
@@ -324,9 +359,12 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 		setter, a2_setter, getter
 	};
 
+    // propertyMap对info进行了copy-in
+    // 所以下面infoAsPtr重新获取
 	[propertyMap setObject:(__bridge id)&info forKey:protocol];
 	infoAsPtr = (__bridge void *)[propertyMap objectForKey:protocol];
 
+    /// hook setter方法 将delegate赋给dynamicDelegate的realDelegate
 	IMP setterImplementation = imp_implementationWithBlock(^(NSObject *delegatingObject, id delegate) {
 		A2DynamicDelegate *dynamicDelegate = getDynamicDelegate(delegatingObject, protocol, infoAsPtr, YES);
 		if ([delegate isEqual:dynamicDelegate]) {

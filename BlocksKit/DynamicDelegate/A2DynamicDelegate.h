@@ -1,4 +1,4 @@
-//
+//!
 //  A2DynamicDelegate.h
 //  BlocksKit
 //
@@ -9,7 +9,8 @@
 #import <BlocksKit/NSObject+A2DynamicDelegate.h>
 
 NS_ASSUME_NONNULL_BEGIN
-
+/// 跟RAC不同的是 RAC通过hook方法方式来添加方法实现
+/// 这里通过添加一个NSProxy子类作为中间者来保存对应方法的block
 /** A2DynamicDelegate implements a class's delegate, data source, or other
  delegated protocol by associating protocol methods with a block implementation.
 
@@ -61,12 +62,17 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (instancetype)initWithProtocol:(Protocol *)protocol;
 
-/** The protocol delegating the dynamic delegate. */
+/** The protocol delegating the dynamic delegate. 
+    代理的协议名称
+ */
 @property (nonatomic, readonly) Protocol *protocol;
 
 /** A dictionary of custom handlers to be used by custom responders
  in a A2Dynamic(Protocol Name) subclass of A2DynamicDelegate, like
- `A2DynamicUIAlertViewDelegate`. */
+ `A2DynamicUIAlertViewDelegate`. 
+ 
+ 子类存放block value是block A2DynamicUIAlertViewDelegate中key为按钮的index
+ */
 @property (nonatomic, strong, readonly) NSMutableDictionary *handlers;
 
 /** When replacing the delegate using the A2BlockDelegate extensions, the object

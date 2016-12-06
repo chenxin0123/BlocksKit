@@ -1,4 +1,4 @@
-//
+//!
 //  A2DynamicDelegate.m
 //  BlocksKit
 //
@@ -47,6 +47,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 @implementation NSMapTable (BKAdditions)
 
+/// Create and return
 + (instancetype)bk_selectorsToStrongObjectsMapTable
 {
 	NSPointerFunctions *selectors = [NSPointerFunctions pointerFunctionsWithOptions:NSPointerFunctionsOpaqueMemory|NSPointerFunctionsOpaquePersonality];
@@ -79,9 +80,10 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 @end
 
+/// 类方法
 @interface A2DynamicClassDelegate : A2DynamicDelegate
 
-@property (nonatomic) Class proxiedClass;
+@property (nonatomic) Class proxiedClass; ///< 持有者的真实类
 
 @end
 
@@ -90,8 +92,8 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 @interface A2DynamicDelegate ()
 
 @property (nonatomic) A2DynamicClassDelegate *classProxy;
-@property (nonatomic, readonly) NSMapTable *invocationsBySelectors;
-@property (nonatomic, weak, readwrite) id realDelegate;
+@property (nonatomic, readonly) NSMapTable *invocationsBySelectors;///< selector:incocation
+@property (nonatomic, weak, readwrite) id realDelegate;///< 真实代理
 
 - (BOOL) isClassProxy;
 
@@ -99,6 +101,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 @implementation A2DynamicDelegate
 
+/// 无则创建
 - (A2DynamicClassDelegate *)classProxy
 {
 	if (!_classProxy)
@@ -115,6 +118,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 	return NO;
 }
 
+/// 返回A2DynamicDelegate或A2DynamicClassDelegate或A2Dynamic(Protocol Name) subclass of A2DynamicDelegate
 - (Class)class
 {
 	Class myClass = object_getClass(self);
@@ -130,6 +134,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 	_invocationsBySelectors = [NSMapTable bk_selectorsToStrongObjectsMapTable];
 	return self;
 }
+
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
@@ -152,6 +157,8 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 	return [NSString stringWithFormat:@"<A2DynamicDelegate:%p; protocol = %@>", (__bridge void *)self, NSStringFromProtocol(self.protocol)];
 }
 
+/// 如果有block的实现 block的实现会覆盖真实代理的实现
+/// 无block实现 调用真实代理实现
 - (void)forwardInvocation:(NSInvocation *)outerInv
 {
 	SEL selector = outerInv.selector;
@@ -169,6 +176,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 {
 	return protocol_isEqual(aProtocol, self.protocol) || [super conformsToProtocol:aProtocol];
 }
+
 - (BOOL)respondsToSelector:(SEL)selector
 {
 	return [self.invocationsBySelectors bk_objectForSelector:selector] ||
@@ -183,6 +191,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 #pragma mark - Block Instance Method Implementations
 
+/// 返回对应的block
 - (id)blockImplementationForMethod:(SEL)selector
 {
 	A2BlockInvocation *invocation = nil;
@@ -191,6 +200,8 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 	return NULL;
 }
 
+/// block为nil表示移除
+/// 添加或者替换方法实现
 - (void)implementMethod:(SEL)selector withBlock:(id)block
 {
 	NSCAssert(selector, @"Attempt to implement or remove NULL selector");
@@ -201,6 +212,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 		return;
 	}
 
+    // 从协议里取到方法签名 否则使用block的签名
 	struct objc_method_description methodDescription = protocol_getMethodDescription(self.protocol, selector, YES, !isClassMethod);
 	if (!methodDescription.name) methodDescription = protocol_getMethodDescription(self.protocol, selector, NO, !isClassMethod);
 
@@ -214,12 +226,16 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 	[self.invocationsBySelectors bk_setObject:inv forSelector:selector];
 }
+
+/// 移除
 - (void)removeBlockImplementationForMethod:(SEL)selector __unused
 {
 	[self implementMethod:selector withBlock:nil];
 }
 
 #pragma mark - Block Class Method Implementations
+
+/// 类方法
 
 - (id)blockImplementationForClassMethod:(SEL)selector
 {
@@ -230,6 +246,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 {
 	[self.classProxy implementMethod:selector withBlock:block];
 }
+
 - (void)removeBlockImplementationForClassMethod:(SEL)selector __unused
 {
 	[self.classProxy implementMethod:selector withBlock:nil];
@@ -245,10 +262,12 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 {
 	return YES;
 }
+
 - (BOOL)isEqual:(id)object
 {
 	return [super isEqual:object] || [_proxiedClass isEqual:object];
 }
+
 - (BOOL)respondsToSelector:(SEL)aSelector
 {
 	return [self.invocationsBySelectors bk_objectForSelector:aSelector] || [_proxiedClass respondsToSelector:aSelector];
@@ -279,6 +298,7 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 	return [_proxiedClass hash];
 }
 
+/// 调用block
 - (void)forwardInvocation:(NSInvocation *)outerInv
 {
 	SEL selector = outerInv.selector;
@@ -311,6 +331,8 @@ static inline BOOL protocol_declaredSelector(Protocol *protocol, SEL selector)
 
 #pragma mark - Helper functions
 
+/// 往上遍历父类 查找协议_clssuffix
+/// UITableView Delegate == UITableViewDelegate
 static Protocol *a2_classProtocol(Class _cls, NSString *suffix, NSString *description)
 {
 	Class cls = _cls;

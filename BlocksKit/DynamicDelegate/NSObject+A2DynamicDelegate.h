@@ -1,4 +1,4 @@
-//
+//!
 //  NSObject+A2DynamicDelegate.h
 //  BlocksKit
 //

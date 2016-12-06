@@ -1,4 +1,4 @@
-//
+//!
 //  A2BlockInvocation.m
 //  BlocksKit
 //
@@ -190,7 +190,9 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 	return (self = [self initWithBlock:block methodSignature:methodSignature blockSignature:blockSignature]);
 }
 
-///
+/// outerInv含有需要的参数
+/// 无返回值时outReturnValue为nil
+/// setOnInvocation为YES时 为outerInv设置返回值
 - (BOOL)invokeWithInvocation:(NSInvocation *)outerInv returnValue:(out NSValue **)outReturnValue setOnInvocation:(BOOL)setOnInvocation
 {
 	NSParameterAssert(outerInv);
@@ -206,7 +208,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 
 	void *argBuf = NULL;
 
-    // 设置参数并调用block
+    // 设置参数
 	for (NSUInteger i = 2; i < sig.numberOfArguments; i++) {
 		const char *type = [sig getArgumentTypeAtIndex:i];
 		NSUInteger argSize;
@@ -220,6 +222,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 		[innerInv setArgument:argBuf atIndex:i - 1];
 	}
 
+    // 调用block
 	[innerInv invokeWithTarget:self.block];
 
 	NSUInteger retSize = sig.methodReturnLength;
@@ -239,7 +242,7 @@ NS_INLINE BOOL typesCompatible(const char *a, const char *b) {
 				*outReturnValue = [NSValue valueWithBytes:argBuf objCType:sig.methodReturnType];
 			}
 		}
-	} else {
+	} else {// 无返回值
 		if (outReturnValue) {
 			*outReturnValue = nil;
 		}

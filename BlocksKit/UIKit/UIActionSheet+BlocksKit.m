@@ -121,12 +121,15 @@
 - (instancetype)bk_initWithTitle:(NSString *)title {
 	self = [self initWithTitle:title delegate:self.bk_dynamicDelegate cancelButtonTitle:nil destructiveButtonTitle:nil otherButtonTitles:nil];
 	if (!self) { return nil; }
+    // A2DynamicUIActionSheetDelegate实例
 	self.delegate = self.bk_dynamicDelegate;
 	return self;
 }
 
 #pragma mark Actions
-
+/// 调用addButtonWithTitle添加按钮
+/// bk_setHandler设置按钮的回调
+/// 返回按钮的index
 - (NSInteger)bk_addButtonWithTitle:(NSString *)title handler:(void (^)(void))block {
 	NSAssert(title.length, @"A button without a title cannot be added to an action sheet.");
 	NSInteger index = [self addButtonWithTitle:title];
@@ -140,6 +143,9 @@
 	return index;
 }
 
+/// 调用addButtonWithTitle添加按钮
+/// bk_setHandler设置按钮的回调
+/// 返回按钮的index
 - (NSInteger)bk_setCancelButtonWithTitle:(NSString *)title handler:(void (^)(void))block {
 	NSInteger cancelButtonIndex = self.cancelButtonIndex;
 
@@ -156,6 +162,7 @@
 
 #pragma mark Properties
 
+/// 保存block
 - (void)bk_setHandler:(void (^)(void))block forButtonAtIndex:(NSInteger)index {
 	A2DynamicUIActionSheetDelegate *delegate = self.bk_ensuredDynamicDelegate;
 
@@ -166,6 +173,7 @@
 	}
 }
 
+/// 取出block
 - (void (^)(void))bk_handlerForButtonAtIndex:(NSInteger)index
 {
 	return [self.bk_dynamicDelegate handlers][@(index)];
