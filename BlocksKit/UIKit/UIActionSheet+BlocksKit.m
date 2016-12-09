@@ -1,4 +1,4 @@
-//
+//!
 //  UIActionSheet+BlocksKit.m
 //  BlocksKit
 //
@@ -21,6 +21,8 @@
 
 @implementation A2DynamicUIActionSheetDelegate
 
+/// 实现代理方法 调用原代理的方法以及添加的block
+/// 方法对应的block存放在delegate(A2DynamicUIActionSheetDelegate)的handlers中
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex
 {
 	id realDelegate = self.realDelegate;
@@ -40,6 +42,7 @@
 	}
 }
 
+/// 下面几个方法的对应block通过对应的setter来设置 setter和getter在在+load中添加
 - (void)willPresentActionSheet:(UIActionSheet *)actionSheet
 {
 	id realDelegate = self.realDelegate;

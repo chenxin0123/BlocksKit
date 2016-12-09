@@ -1,4 +1,4 @@
-//
+//!
 //  UIImagePickerController+BlocksKit.h
 //  BlocksKit
 //

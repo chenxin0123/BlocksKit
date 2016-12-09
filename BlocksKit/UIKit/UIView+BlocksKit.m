@@ -1,4 +1,4 @@
-//
+//!
 //  UIView+BlocksKit.m
 //  BlocksKit
 //
@@ -7,7 +7,6 @@
 #import "UIGestureRecognizer+BlocksKit.h"
 
 @implementation UIView (BlocksKit)
-
 - (void)bk_whenTouches:(NSUInteger)numberOfTouches tapped:(NSUInteger)numberOfTaps handler:(void (^)(void))block
 {
 	if (!block) return;
@@ -19,6 +18,7 @@
 	gesture.numberOfTouchesRequired = numberOfTouches;
 	gesture.numberOfTapsRequired = numberOfTaps;
 
+    // 遍历当前已经存在的手势 如果发现一个一样的手势 则设置requireGestureRecognizerToFail
 	[self.gestureRecognizers enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 		if (![obj isKindOfClass:[UITapGestureRecognizer class]]) return;
 

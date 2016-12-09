@@ -45,7 +45,7 @@ static dispatch_queue_t a2_backgroundQueue(void)
 }
 
 
-/// 创建对应A2DynamicDelegate的实例或其子类实例
+/// 创建或返回对应A2DynamicDelegate的实例或其子类实例
 - (id)bk_dynamicDelegate
 {
     // UIAlertView -> UIAlertViewDelegate

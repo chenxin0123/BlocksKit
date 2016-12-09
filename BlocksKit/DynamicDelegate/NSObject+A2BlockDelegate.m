@@ -185,6 +185,7 @@ static NSString *A2BlockDelegateInfoDescribe(const void *__unused item) {
 
 /// 设置A2DynamicUIActionSheetDelegate实例为自己的代理并返回
 /// 例：protocol为UIActionSheetDelegate时返回A2DynamicUIActionSheetDelegate实例
+/// info内存放delegate的setter和getter信息
 static inline A2DynamicDelegate *getDynamicDelegate(NSObject *delegatingObject, Protocol *protocol, const A2BlockDelegateInfo *info, BOOL ensuring) {
     
 	A2DynamicDelegate *dynamicDelegate = [delegatingObject bk_dynamicDelegateForProtocol:a2_protocolForDelegatingObject(delegatingObject, protocol)];
@@ -203,7 +204,7 @@ static inline A2DynamicDelegate *getDynamicDelegate(NSObject *delegatingObject, 
     // 如果已经是dynamicDelegate 返回
 	if (bk_object_isKindOfClass(originalDelegate, A2DynamicDelegate.class)) { return dynamicDelegate; }
 
-    // 否则设置代理
+    // 调用这个方法的时候 setDelegate已经被hook了 调用a2_setter相当于调用原实现
 	void (*setterDispatch)(id, SEL, id) = (void (*)(id, SEL, id)) objc_msgSend;
 	setterDispatch(delegatingObject, info->a2_setter ?: info->setter, dynamicDelegate);
 
@@ -274,6 +275,16 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 /// protocol用来查找对应的A2BlockDelegateInfo
 /// 通过A2BlockDelegateInfo找到A2DynamicDelegate
 /// A2DynamicDelegate中有对应setter getter的实现
+/// 在类上添加setter getter方法
+/* 
+UIActionSheetDelegate 
+@{
+ @"bk_willShowBlock": @"willPresentActionSheet:",
+ @"bk_didShowBlock": @"didPresentActionSheet:",
+ @"bk_willDismissBlock": @"actionSheet:willDismissWithButtonIndex:",
+ @"bk_didDismissBlock": @"actionSheet:didDismissWithButtonIndex:"
+}
+*/
 + (void)bk_linkProtocol:(Protocol *)protocol methods:(NSDictionary *)dictionary
 {
 	[dictionary enumerateKeysAndObjectsUsingBlock:^(NSString *propertyName, NSString *selectorName, BOOL *stop) {
@@ -293,10 +304,13 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 		SEL getter = getterForProperty(property, name);
 		SEL setter = setterForProperty(property, name);
 
+        // 已存在setter或者getter 返回
 		if (class_respondsToSelector(self, setter) || class_respondsToSelector(self, getter)) { return; }
 
+        
 		const A2BlockDelegateInfo *info = [self bk_delegateInfoForProtocol:protocol];
 
+        // 添加getter
 		IMP getterImplementation = imp_implementationWithBlock(^(NSObject *delegatingObject) {
 			A2DynamicDelegate *delegate = getDynamicDelegate(delegatingObject, protocol, info, NO);
 			return [delegate blockImplementationForMethod:selector];
@@ -306,6 +320,7 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 			NSCAssert(NO, @"Could not implement getter for \"%@\" property.", propertyName);
 		}
 
+        // 添加setter
 		IMP setterImplementation = imp_implementationWithBlock(^(NSObject *delegatingObject, id block) {
 			A2DynamicDelegate *delegate = getDynamicDelegate(delegatingObject, protocol, info, YES);
 			[delegate implementMethod:selector withBlock:block];
@@ -341,6 +356,7 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 /// 以UIActionSheet为例
 /// delegateName: @"delegate"
 /// protocol: UIActionSheetDelegate
+/// hook setDelegate 将代理设置为A2DynamicUIActionSheetDelegate实例 并持有relDelegate
 + (void)bk_registerDynamicDelegateNamed:(NSString *)delegateName forProtocol:(Protocol *)protocol
 {
 	NSMapTable *propertyMap = [self bk_delegateInfoByProtocol:YES];
@@ -366,19 +382,19 @@ typedef A2DynamicDelegate *(^A2GetDynamicDelegateBlock)(NSObject *, BOOL);
 
     /// hook setter方法 将delegate赋给dynamicDelegate的realDelegate
 	IMP setterImplementation = imp_implementationWithBlock(^(NSObject *delegatingObject, id delegate) {
+        /// 将代理设置为A2DynamicUIActionSheetDelegate实例
 		A2DynamicDelegate *dynamicDelegate = getDynamicDelegate(delegatingObject, protocol, infoAsPtr, YES);
 		if ([delegate isEqual:dynamicDelegate]) {
 			delegate = nil;
 		}
 		dynamicDelegate.realDelegate = delegate;
 	});
-
 	if (!swizzleWithIMP(self, setter, a2_setter, setterImplementation, "v@:@", YES)) {
 		bzero(infoAsPtr, sizeof(A2BlockDelegateInfo));
 		return;
 	}
 
-	if (![self instancesRespondToSelector:getter]) {
+	if (![self instancesRespondToSelector:getter]) { // 如果没实现getter 添加实现
 		IMP getterImplementation = imp_implementationWithBlock(^(NSObject *delegatingObject) {
 			return [delegatingObject bk_dynamicDelegateForProtocol:a2_protocolForDelegatingObject(delegatingObject, protocol)];
 		});
